@@ -19,6 +19,7 @@ from services.financial_calculator import TeslaFinancialCalculator
 from services.enhanced_financial_calculator import EnhancedTeslaCalculator
 from services.segment_analyzer import TeslaSegmentAnalyzer
 from services.analytics_engine import AnalyticsEngine
+from services.ai_agents import proactive_insights_agent, prophet_forecasting_agent, tesla_ai_agent
 from data.tesla_data import generate_all_tesla_assumptions, TESLA_BASE_YEAR_DATA, MACRO_ASSUMPTIONS
 
 ROOT_DIR = Path(__file__).parent
@@ -59,6 +60,131 @@ async def startup_event():
         logger.info("Analytics data loaded successfully")
     else:
         logger.error("Failed to load analytics data")
+
+# AI AGENTS ENDPOINTS
+
+class ProactiveInsightsRequest(BaseModel):
+    scenario: str
+    model_data: Optional[Dict] = None
+
+@api_router.post("/ai/proactive-insights")
+async def get_proactive_insights(request: ProactiveInsightsRequest):
+    """Get proactive AI insights for financial model"""
+    try:
+        # Check if OpenAI API key is available
+        if not os.getenv('OPENAI_API_KEY'):
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+        
+        # If no model data provided, generate it
+        if not request.model_data:
+            scenario_enum = ScenarioType(request.scenario.lower())
+            model = tesla_calculator.build_complete_financial_model(scenario_enum)
+            model_data = model.dict()
+        else:
+            model_data = request.model_data
+        
+        insights = proactive_insights_agent.analyze_financial_model(model_data, request.scenario)
+        
+        return {
+            "success": True,
+            "scenario": request.scenario,
+            "insights": insights,
+            "generated_at": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating insights: {str(e)}")
+
+class ProphetForecastRequest(BaseModel):
+    historical_data: List[Dict]
+    periods: int = 12
+    metric_name: str = "revenue"
+
+@api_router.post("/ai/prophet-forecast")
+async def generate_prophet_forecast(request: ProphetForecastRequest):
+    """Generate Prophet-based forecast with AI insights"""
+    try:
+        if not os.getenv('OPENAI_API_KEY'):
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+        
+        forecast_result = prophet_forecasting_agent.generate_prophet_forecast(
+            request.historical_data, 
+            request.periods
+        )
+        
+        return {
+            "success": True,
+            "metric": request.metric_name,
+            "forecast_result": forecast_result,
+            "generated_at": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating forecast: {str(e)}")
+
+class TeslaAIRequest(BaseModel):
+    scenario: str = "base"
+    changes: Dict[str, float] = {}
+
+@api_router.post("/ai/tesla-agent/initialize")
+async def initialize_tesla_ai_agent(scenario: str = "base"):
+    """Initialize Tesla AI Agent with base scenario"""
+    try:
+        result = tesla_ai_agent.initialize_base_model(scenario)
+        
+        return {
+            "success": True,
+            "initialization": result,
+            "available_sliders": {
+                "asp_change": {"min": -30, "max": 30, "step": 1, "unit": "%"},
+                "cost_change": {"min": -20, "max": 40, "step": 1, "unit": "%"},
+                "delivery_change": {"min": -50, "max": 100, "step": 5, "unit": "%"}
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing Tesla AI agent: {str(e)}")
+
+@api_router.post("/ai/tesla-agent/simulate")
+async def simulate_tesla_changes(request: TeslaAIRequest):
+    """Simulate Tesla model changes with AI insights"""
+    try:
+        if not os.getenv('OPENAI_API_KEY'):
+            raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+        
+        # Initialize if not already done
+        if not tesla_ai_agent.base_assumptions:
+            tesla_ai_agent.initialize_base_model(request.scenario)
+        
+        simulation_result = tesla_ai_agent.simulate_slider_changes(request.changes)
+        
+        return {
+            "success": True,
+            "simulation": simulation_result,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error simulating changes: {str(e)}")
+
+@api_router.get("/ai/tesla-agent/vehicle-models")
+async def get_vehicle_models_info():
+    """Get information about Tesla vehicle models for the AI agent"""
+    try:
+        from data.tesla_enhanced_data import VEHICLE_MODEL_DATA
+        
+        models_info = {}
+        for model_key, model_data in VEHICLE_MODEL_DATA["models"].items():
+            models_info[model_key] = {
+                "name": model_data["name"],
+                "segment": model_data["segment"],
+                "base_asp": model_data["base_asp"],
+                "max_capacity": model_data["max_capacity"],
+                "growth_trajectory": model_data["growth_trajectory"]
+            }
+        
+        return {
+            "success": True,
+            "vehicle_models": models_info
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting vehicle models: {str(e)}")
 
 # Professional Dashboard API Endpoints
 

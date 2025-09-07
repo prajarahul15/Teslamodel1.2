@@ -8,6 +8,8 @@ import DataOverview from './DataOverview';
 import ForecastPage from './ForecastPage';
 import { VehicleModelAnalysis, BusinessSegmentAnalysis, BridgeAnalysis } from './EnhancedTeslaComponents';
 import LoadingSpinner from './LoadingSpinner';
+import ProactiveInsights from './ProactiveInsights';
+import TeslaAIAgent from './TeslaAIAgent';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -170,7 +172,9 @@ const TeslaDashboard = () => {
                 { id: 'bridge-analysis', name: 'Bridge Analysis' },
                 { id: 'comparison', name: 'Scenario Comparison' },
                 { id: 'data-overview', name: 'Data Overview' },
-                { id: 'forecast', name: 'Advanced Forecast' }
+                { id: 'forecast', name: 'Advanced Forecast' },
+                { id: 'ai-insights', name: 'AI Insights' },
+                { id: 'tesla-ai-agent', name: 'Tesla AI Agent' }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -242,6 +246,17 @@ const TeslaDashboard = () => {
 
             {activeTab === 'forecast' && (
               <ForecastPage />
+            )}
+
+            {activeTab === 'ai-insights' && (
+              <ProactiveInsights 
+                scenario={activeScenario}
+                modelData={financialModels[activeScenario]}
+              />
+            )}
+
+            {activeTab === 'tesla-ai-agent' && (
+              <TeslaAIAgent />
             )}
           </div>
         </div>
